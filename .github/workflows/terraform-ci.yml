@@ -7,30 +7,7 @@ on:
   pull_request:
 
 jobs:
-  detect-changes:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Detect changes
-        id: detect
-        run: |
-          echo "Detecting changes..."
-          # Add logic to detect changes in Terraform files
-
-  list-stages:
-    needs: detect-changes
-    runs-on: ubuntu-latest
-    steps:
-      - name: List stages
-        id: list-stages
-        run: |
-          echo "Listing stages..."
-          # Logic to determine environments (e.g., dev, staging, production)
-
   validate:
-    needs: list-stages
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -42,30 +19,21 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Install TFLint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          tflint --version  # Verify installation
+
       - name: Run TFLint
         run: tflint --config .tflint.hcl
+
+      - name: Install Tfsec
+        run: |
+          curl -sL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+          tfsec --version  # Verify installation
 
       - name: Run Tfsec
         run: tfsec .
 
       - name: Terraform Validate
         run: terraform validate
-
-  plan:
-    needs: validate
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        environment: [development, staging, production]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
