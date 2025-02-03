@@ -33,5 +33,9 @@ jobs:
             echo "iac_changed=false" >> $GITHUB_ENV
           fi
 
+      - name: Load Environment Variables
+        run: source $GITHUB_ENV
+
       - name: Display results
-        run: echo "IAC directory changed: ${{ env.iac_changed }}"
+        run: |
+          echo "IAC directory changed: ${iac_changed}"
