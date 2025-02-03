@@ -1,0 +1,55 @@
+name: Terraform Apply on Pull Request Merged
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+jobs:
+  detect-changes:
+    if: github.event.pull_request.merged == true
+    uses: ./.github/workflows/detect_changes.yml
+    with:
+      event_name: pull_request
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: read
+
+  list-stages:
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.folders != '[]' }}
+    uses: ./.github/workflows/terraform_stages.yml
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: read
+    with:
+      detect_changes: ${{ needs.detect-changes.outputs.folders }}
+
+  apply:
+    needs: [list-stages]
+    if: ${{ needs.detect-changes.outputs.folders != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: ${{ fromJson(needs.list-stages.outputs.stages) }}
+    uses: ./.github/workflows/terraform_apply.yml
+    with:
+      tf_version: ${{ vars.TF_VERSION }}
+      aws_region: ${{ vars.AWS_REGION }}
+      working_directory: ${{ matrix.stage.folder }}
+      event_name: pull_request
+      role_to_assume: ${{ vars.AWS_ASSUME_ROLE_IAC }}
+      tfplan_s3_bucket: ${{ vars.TFPLAN_S3_BUCKET_IAC }}
+      environment: ${{ matrix.stage.environment }}
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
