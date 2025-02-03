@@ -1,0 +1,66 @@
+name: Manual Terraform Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      folder:
+        description: 'The folder where the Terraform code is located'
+        required: true
+        default: 'IAC'
+        type: string
+      environment:
+        description: 'The AWS Account [environment] to deploy to'
+        required: true
+        default: 'development'
+        type: string
+      dry-run:
+        description: 'Set to false to apply changes'
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  validate-terraform:
+    uses: ./.github/workflows/terraform_validate.yml
+    with:
+      tf_version: ${{ vars.TF_VERSION }}
+      working_directory: ${{ inputs.folder }}
+      role_to_assume: ${{ vars.AWS_ASSUME_ROLE_IAC }}
+      environment: ${{ inputs.environment }}
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+
+  plan-terraform:
+    needs: [validate-terraform]
+    if: ${{ inputs.environment }} != 'production'
+    uses: ./.github/workflows/terraform_plan.yml
+    with:
+      tf_version: ${{ vars.TF_VERSION }}
+      role_to_assume: ${{ vars.AWS_ASSUME_ROLE_IAC }}
+      tfplan_s3_bucket: ${{ vars.TFPLAN_S3_BUCKET_IAC }}
+      working_directory: ${{ inputs.folder }}
+      environment: ${{ inputs.environment }}
+      event_name: manual
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write # Required by GitHub for certain permissions
+
+  apply-terraform:
+    needs: [plan-terraform]
+    if: ${{ inputs.dry-run }} == false
+    uses: ./.github/workflows/terraform_apply.yml
+    with:
+      tf_version: ${{ vars.TF_VERSION }}
+      role_to_assume: ${{ vars.AWS_ASSUME_ROLE_IAC }}
+      tfplan_s3_bucket: ${{ vars.TFPLAN_S3_BUCKET_IAC }}
+      working_directory: ${{ inputs.folder }}
+      environment: ${{ inputs.environment }}
+      event_name: manual
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
