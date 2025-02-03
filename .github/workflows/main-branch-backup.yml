@@ -1,0 +1,40 @@
+name: Main Branch Backup
+
+on:
+  schedule:
+    - cron: '0 12 * * *' # Runs daily at 12:00 UTC (5:30 AM IST)
+
+jobs:
+  backup-to-s3:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: main  # Ensure we work with the latest main branch
+
+      - name: Install or Update AWS CLI
+        run: |
+          if ! aws --version; then
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip -q awscliv2.zip
+            sudo ./aws/install
+          else
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip -q awscliv2.zip
+            sudo ./aws/install --update
+          fi
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_IAC }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_IAC }}
+          aws-region: us-west-2  # Change to your AWS region if needed
+
+      - name: Zip Repository
+        run: zip -r kasa-main-branch-backup.zip .
+
+      - name: Upload to S3
+        run: aws s3 cp kasa-main-branch-backup.zip s3://kasa-github-backup-bucket/AWS-Infrastructure-repo-backup/kasa-main-$(date +'%Y-%m-%dT%H:%M:%S').zip
