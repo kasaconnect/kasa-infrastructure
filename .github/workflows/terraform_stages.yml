@@ -1,0 +1,50 @@
+name: List stages for AWS account
+
+on:
+  workflow_call:
+    inputs:
+      detect_changes:
+        description: 'All directories to run commands in'
+        required: true
+        type: string
+
+    outputs:
+      stages:
+        description: list of defined stages
+        value: ${{ jobs.list-stages.outputs.stages }}
+
+jobs:
+  list-stages:
+    runs-on: ubuntu-latest
+    outputs:
+      stages: ${{ steps.stages.outputs.stages }}
+
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout source code
+
+      - name: Retrieve Terraform Backend Configurations
+        id: stages
+        run: |
+          echo ${{ inputs.detect_changes }}
+
+          # Populate the array with elements
+          IFS=', ' read -r -a folders <<< "$(echo "${{ inputs.detect_changes }}" | tr -d '[]')"
+
+          for folder in "${folders[@]}"; do
+            # Find .tfbackend files and format as comma-separated list of quoted strings
+            files=$(find $folder/backend -type f -name "*.tfbackend"  -exec basename {} \; | sed 's/\.tfbackend$//')
+
+            # Building the JSON-like formatted string containing stages
+            for file in $files; do
+              environment=$file
+              stages+="{\"folder\": \"$folder\", \"environment\": \"$environment\"}, "
+            done
+          done
+
+          # Remove trailing comma and space
+          stages="[${stages%, }]"
+
+          # Setting the stages as output
+          echo "${stages}"
+          echo "stages=${stages}" >> $GITHUB_OUTPUT
