@@ -1,0 +1,59 @@
+name: Terraform Apply on Release Tags
+on:
+  push:
+    tags:
+      - v*.**
+
+jobs:
+  detect-changes:
+    uses: ./.github/workflows/detect_changes.yml
+    with:
+      event_name: release_tags
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: read
+
+  plan:
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.folders != '[]'}}
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: ${{fromJson(needs.detect-changes.outputs.folders)}}
+    uses: ./.github/workflows/terraform_plan.yml
+    with:
+      tf_version: ${{ vars.TF_VERSION }}
+      aws_region: ${{ vars.AWS_REGION }}
+      working_directory: ${{ matrix.stage }}
+      event_name: release_tags
+      role_to_assume: ${{ vars.AWS_ASSUME_ROLE }}
+      tfplan_s3_bucket: ${{ vars.TFPLAN_S3_BUCKET }}
+      environment: 'production'
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+  apply:
+    needs: [detect-changes, plan]
+    if: ${{ needs.detect-changes.outputs.folders != '[]'}}
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: ${{fromJson(needs.detect-changes.outputs.folders)}}
+    uses: ./.github/workflows/terraform_apply.yml
+    with:
+      tf_version: ${{ vars.TF_VERSION }}
+      aws_region: ${{ vars.AWS_REGION }}
+      working_directory: ${{ matrix.stage }}
+      event_name: release_tags
+      role_to_assume: ${{ vars.AWS_ASSUME_ROLE }}
+      tfplan_s3_bucket: ${{ vars.TFPLAN_S3_BUCKET }}
+      environment: 'production'
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
