@@ -40,9 +40,5 @@ jobs:
           base: ${{ inputs.event_name == 'release_tags' && env.GIT_BASE || github.event.repository.default_branch }}
           # Folders where code changes will be detected
           filters: |
-            m2:
-              - 'm2/**'
-            sandbox:
-              - 'sandbox/**'
-            shared-services:
-              - 'shared-services/**'
+            kasa-infra:
+              - 'kasa-infra/**'
