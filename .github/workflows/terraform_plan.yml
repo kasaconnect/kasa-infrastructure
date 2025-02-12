@@ -1,0 +1,40 @@
+name: Terraform Plan
+
+on:
+  workflow_call:
+        
+# env:
+#   TF_PLAN_PATH: ${{ github.workspace}}/${{ inputs.working_directory }}/tfplan-${{ inputs.environment }}-${{ inputs.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+            aws-access-key-id: '${{ vars.TF_USER_AWS_KEY }}'
+            aws-secret-access-key: '${{ vars.TF_USER_AWS_SECRET }}'
+            aws-region: us-east-1 
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0  # Specify the version of Terraform you want to use
+
+      - name: Terraform Init
+        run: |
+          terraform init -backend-config modules/backend/dev.tfbackend
+
+      - name: Terraform Plan
+        id: terraform-plan
+        run: |
+          terraform plan --var-file tfvars/dev.tfvars 
+     
+      - name: Output Plan Results
+        run: |
+          echo "Terraform plan completed successfully."
