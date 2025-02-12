@@ -26,26 +26,32 @@ jobs:
       - name: Retrieve Terraform Backend Configurations
         id: stages
         run: |
-
           echo ${{ inputs.detect_changes }}
 
           # Populate the array with elements
           IFS=', ' read -r -a folders <<< "$(echo "${{ inputs.detect_changes }}" | tr -d '[]')"
 
+          # Initialize the stages variable
+          stages=""
+
           for folder in "${folders[@]}"; do
             # Find .tfbackend files and format as comma-separated list of quoted strings
-            files=$(find $folder/backend -type f -name "*.tfbackend"  -exec basename {} \; | sed 's/\.tfbackend$//')
+            files=$(find "$folder/backend" -type f -name "*.tfbackend" -exec basename {} \;)
 
-            # Building the JSON-like formatted string containing stages
+            # Build the JSON-like formatted string containing stages
             for file in $files; do
               environment=$file
               stages+="{\"folder\": \"$folder\", \"environment\": \"$environment\"}, "
-              done
+
+              # Copy the backend file to the GitHub workspace
+              mkdir -p "${GITHUB_WORKSPACE}/backend_files/$folder"
+              cp "$folder/backend/$file" "${GITHUB_WORKSPACE}/backend_files/$folder/"
             done
+          done
 
           # Remove trailing comma and space
           stages="[${stages%, }]"
 
-          # Setting the stages as output
+          # Set the stages as output
           echo "${stages}"
           echo "stages=${stages}" >> $GITHUB_OUTPUT

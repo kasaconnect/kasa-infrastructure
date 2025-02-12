@@ -1,0 +1,42 @@
+name: Terraform Lint and Security Check
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  lint-security-validate:
+    name: Run TFLint, TFSEC, and Terraform Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+
+      - name: Install TFLint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install.sh | bash
+
+      - name: Run TFLint
+        run: tflint --init && tflint
+
+      - name: Install TFSEC
+        run: |
+          curl -fsSL https://aquasecurity.github.io/tfsec/v1/install.sh | bash
+
+      - name: Run TFSEC
+        run: tfsec .
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
