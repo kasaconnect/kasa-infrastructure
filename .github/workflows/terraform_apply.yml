@@ -1,37 +1,91 @@
-name: Terraform Apply
+name: Apply Terraform Deployment
 
 on:
   workflow_call:
+    inputs:
+      tf_version:
+        description: 'The version of Terraform to use'
+        default: '1.6.2'
+        type: string
+      aws_region:
+        description: 'The AWS region to use by default'
+        default: 'us-east-1'
+        type: string
+      working_directory:
+        description: 'The directory to run commands in'
+        required: true
+        type: string
+      environment:
+        description: 'The environment to deploy to'
+        required: true
+        type: string
+      event_name:
+        description: 'The name of the event that called the workflow.'
+        required: false
+        type: string
+      tfplan_s3_bucket:
+        description: URI of the S3 bucket where plans are going to be saved
+        required: true
+        type: string
+      role_to_assume:
+        description: ARN of the role that has to be assumed by the steps that configures AWS credentials
+        required: true
+        type: string
+
+env:
+  TF_PLAN_PATH: ${{ github.workspace}}/${{ inputs.working_directory }}/tfplan-${{ inputs.environment }}-${{ inputs.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+  TFPLAN_S3_PATH: ${{ inputs.tfplan_s3_bucket }}/${{ inputs.working_directory }}/tfplan-${{ inputs.environment }}-${{ inputs.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
 jobs:
-  terraform:
+  terraform-apply:
+    if: |
+      (inputs.event_name == 'pull_request' && inputs.environment != 'production') ||
+      (inputs.event_name != 'pull_request' && inputs.environment == 'production') ||
+      (inputs.event_name == 'manual' && inputs.environment != 'production')
     runs-on: ubuntu-latest
-
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - uses: actions/checkout@v4
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-            aws-access-key-id: '${{ vars.TF_USER_AWS_KEY }}'
-            aws-secret-access-key: '${{ vars.TF_USER_AWS_SECRET }}'
-            aws-region: us-east-1
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v2
+          terraform_version: ${{ inputs.tf_version }}
+          terraform_wrapper: false
+      - name: Configure AWS credentials for the aws account with the OIDC provider
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          terraform_version: 1.5.0  
-
+          role-to-assume: ${{ inputs.role_to_assume }}
+          aws-region: ${{ inputs.aws_region }}
+      - name: Configure Private Modules Credentials
+        id: private-modules
+        uses: philips-labs/terraform-private-modules-action@v1
+        with:
+          org: ${{ github.repository_owner }}
+          token: ${{ secrets.TF_MODULES_REPO_TOKEN }}
       - name: Terraform Init
+        id: init
         run: |
-          terraform init -backend-config modules/backend/dev.tfbackend
-
+          if [ -f backend/${{ inputs.environment }}.tfbackend ]; then
+            terraform init -backend-config=backend/${{ inputs.environment }}.tfbackend
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "No backend configuration found for ${{ inputs.environment }} environment. Skipping"
+            echo "status=skipped" >> $GITHUB_OUTPUT
+          fi
+        env:
+          AWS_REGION: ${{ inputs.aws_region }}
+      - name: Download Plan from S3
+        if: steps.init.outputs.status != 'skipped'
+        run: aws s3 cp ${{ env.TFPLAN_S3_PATH }} ${{ env.TF_PLAN_PATH }}
       - name: Terraform Apply
-        if: github.event_name == 'push'  # Only applies during a push to the main branch
+        if: steps.init.outputs.status != 'skipped'
+        id: apply
+        env:
+          AWS_REGION: ${{ inputs.aws_region }}
         run: |
-          terraform apply --var-file tfvars/dev.tfvars -auto-approve
-
-      - name: Output Apply Results
-        run: |
-          echo "Terraform apply completed successfully."
+          terraform apply -input=false -auto-approve -no-color ${{ env.TF_PLAN_PATH }}
