@@ -15,7 +15,6 @@ on:
 jobs:
   detect:
     runs-on: ubuntu-latest
-    # Required permissions
     permissions:
       id-token: write
       contents: read
@@ -26,8 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          fetch-tags: true
+          fetch-depth: 2
 
       - name: Get previous commit SHA
         id: base_sha
@@ -38,9 +36,6 @@ jobs:
         id: filter
         with:
           base: ${{ inputs.event_name == 'release_tags' && env.GIT_BASE || github.event.repository.default_branch }}
-          # Folders where code changes will be detected
           filters: |
             modules:
               - '**/**'
-              
-            
