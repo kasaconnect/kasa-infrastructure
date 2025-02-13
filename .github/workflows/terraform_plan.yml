@@ -54,6 +54,8 @@ jobs:
         with:
           terraform_version: ${{ inputs.tf_version }}
           terraform_wrapper: false
+      - name: Debug Role ARN
+        run: echo "Role ARN: ${{ inputs.role_to_assume }}"
       - name: Configure AWS credentials for the aws account with the OIDC provider
         uses: aws-actions/configure-aws-credentials@v4
         with:
