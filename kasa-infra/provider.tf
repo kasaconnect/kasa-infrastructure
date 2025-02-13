@@ -1,19 +1,30 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 4.16"
+provider "aws" {
+  region = var.region
+
+  assume_role {
+    role_arn = "arn:aws:iam::${var.account_id}:role/TerraformAdmin"
+  }
+
+  default_tags {
+    tags = {
+      managed_by_terraform = true
+      repository           = "https://github.com/kasaconnect/kasa-infrastructure"
     }
   }
-  backend "s3" {
-    bucket         = "kasa-test-bucket"
-    region         = "us-east-1"
-    dynamodb_table = "demotf-locking"
-    encrypt        = true
-  }
-  required_version = ">= 1.2.0"
 }
 
 provider "aws" {
-  region = var.aws_region
+  region = var.region
+  alias  = "kasa-SUS"
+
+  assume_role {
+    role_arn = "arn:aws:iam::471112800881:role/TerraformAdmin"
+  }
+
+  default_tags {
+    tags = {
+      managed_by_terraform = true
+      repository           = "https://github.com/kasaconnect/kasa-infrastructure"
+    }
+  }
 }
