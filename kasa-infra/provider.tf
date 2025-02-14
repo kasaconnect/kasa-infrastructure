@@ -6,9 +6,9 @@ terraform {
     }
   }
   backend "s3" {
-    bucket         = "kasa-test-bucket"
+    bucket         = "kasa-terraform-state-bucket"
     region         = "us-east-1"
-    dynamodb_table = "demotf-locking"
+    dynamodb_table = "kasa-terraform-state-lock"
     encrypt        = true
   }
   required_version = ">= 1.2.0"
