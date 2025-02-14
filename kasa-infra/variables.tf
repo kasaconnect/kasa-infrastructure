@@ -10,10 +10,10 @@ variable "instance_type" {
 
 variable "region" {
   description = "The region where we deploy the resources"
-  type = string
+  type        = string
 }
 
 variable "account_id" {
   description = "The account ID where we deploy our resources"
-  type = string
+  type        = string
 }
