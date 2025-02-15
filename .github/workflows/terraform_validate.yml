@@ -22,10 +22,6 @@ on:
       event_name:
         description: 'The name of the event that called the workflow.'
         type: string
-      role_to_assume:
-        type: string
-        description: AWS role to asume
-        required: true
 
 jobs:
   tflint:
@@ -34,19 +30,23 @@ jobs:
       run:
         working-directory: ${{ inputs.working_directory }}
     steps:
-      - uses: actions/checkout@v4
-        name: Checkout source code
-      - uses: terraform-linters/setup-tflint@v4
-        name: Setup TFLint
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
         with:
           tflint_version: latest
+
       - name: Init TFLint
         run: tflint --init
+
       - name: Run TFLint
         id: tflint
         run: |
           set -o pipefail
           tflint --format=compact --color --minimum-failure-severity=warning
+
       - name: Terraform TFLint Status
         if: steps.tflint.outcome == 'failure'
         run: exit 1
@@ -59,7 +59,8 @@ jobs:
         working-directory: ${{ inputs.working_directory }}
     steps:
       - uses: actions/checkout@v4
-      - name: TFSec
+
+      - name: Run TFSec
         uses: aquasecurity/tfsec-pr-commenter-action@v1.3.1
         with:
           tfsec_args: -e AWS007
@@ -67,27 +68,50 @@ jobs:
 
   terraform-validate:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
     defaults:
       run:
         working-directory: ${{ inputs.working_directory }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ inputs.tf_version }}
           terraform_wrapper: false
-      - name: Configure AWS credentials for the aws account with the OIDC provider
+
+      - name: Set AWS Role ARN
+        id: set-role
+        run: |
+          if [ "${{ inputs.environment }}" == "dev" ]; then
+            echo "ROLE_ARN=${{ secrets.AWS_ROLE_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ inputs.environment }}" == "stage" ]; then
+            echo "ROLE_ARN=${{ secrets.AWS_ROLE_STAGE }}" >> $GITHUB_ENV
+          elif [ "${{ inputs.environment }}" == "prod" ]; then
+            echo "ROLE_ARN=${{ secrets.AWS_ROLE_PROD }}" >> $GITHUB_ENV
+          else
+            echo "Unknown environment"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::471112800881:role/GitHubActionsRole
+          role-to-assume: ${{ env.ROLE_ARN }}
           aws-region: ${{ inputs.aws_region }}
+
       - name: Configure Private Modules Credentials
         id: private-modules
         uses: philips-labs/terraform-private-modules-action@v1
         with:
           org: ${{ github.repository_owner }}
           token: ${{ secrets.TF_MODULES_REPO_TOKEN }}
+
       - name: Terraform Init
         id: init
         run: |
@@ -95,67 +119,58 @@ jobs:
           terraform init -backend-config=backend/${{ inputs.environment }}.tfbackend
         env:
           AWS_REGION: ${{ inputs.aws_region }}
+
       - name: Terraform fmt
         id: fmt
-        run: |
-          pwd
-          terraform fmt -check
+        run: terraform fmt -check
+
       - name: Terraform Validate
         id: validate
         run: |
-          pwd
           set -o pipefail
           terraform validate -no-color 2>&1 | tee ${GITHUB_WORKSPACE}/validation.out
+
       - name: Create / Update PR comment
         uses: actions/github-script@v7
         if: ${{ inputs.event_name == 'pull_request' }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // 1. Retrieve existing bot comments for the PR
-            const pusher_info = 'Action: \`${{ github.event_name }}\`, Working Directory: \`${{ inputs.working_directory }}\`, Workflow (Validate): \`${{ github.workflow }}\`'
+            const pusher_info = 'Action: `${{ github.event_name }}`, Working Directory: `${{ inputs.working_directory }}`, Workflow (Validate): `${{ github.workflow }}`';
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-            })
-            const botComment = comments.find(comment => {
-              return comment.user.type === 'Bot' && comment.body.includes(pusher_info)
-            })
-
-            // 2. Prepare format of the comment
-            const { readFile } = require("fs/promises")
-            const validation_file = await readFile('validation.out')
-            const validation = validation_file.length > 64000 ? decodeURI(validation_file.toString('ascii').slice(-64000)) : validation_file
+            });
+            const botComment = comments.find(comment => comment.user.type === 'Bot' && comment.body.includes(pusher_info));
+            const { readFile } = require("fs/promises");
+            const validation_file = await readFile('validation.out');
+            const validation = validation_file.length > 64000 ? validation_file.toString().substring(0, 64000) + " ..." : validation_file;
             const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
             #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
             #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
             <details><summary>Validation Output</summary>
-
-            \`\`\`\n
+            \n\n\`\`\`
             ${validation}
             \`\`\`
-
-            </details>
-
+            \n\n</details>
             *Pusher: @${{ github.actor }}, ${pusher_info}*`;
-
-            // 3. If we have a comment, update it, otherwise create a new one
             if (botComment) {
               github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: botComment.id,
-                body: output
-              })
+                body: output,
+              });
             } else {
               github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: output
-              })
+                body: output,
+              });
             }
+
       - name: Terraform Validate Status
         if: steps.validate.outcome == 'failure'
         run: exit 1

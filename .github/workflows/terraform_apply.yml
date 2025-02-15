@@ -27,10 +27,6 @@ on:
         description: URI of the S3 bucket where plans are going to be saved
         required: true
         type: string
-      role_to_assume:
-        description: ARN of the role that has to be assumed by the steps that configures AWS credentials
-        required: true
-        type: string
 
 env:
   TF_PLAN_PATH: ${{ github.workspace}}/${{ inputs.working_directory }}/tfplan-${{ inputs.environment }}-${{ inputs.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
@@ -51,22 +47,40 @@ jobs:
         working-directory: ${{ inputs.working_directory }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ inputs.tf_version }}
           terraform_wrapper: false
-      - name: Configure AWS credentials for the aws account with the OIDC provider
+
+      - name: Set AWS Role ARN
+        id: set-role
+        run: |
+          if [ "${{ inputs.environment }}" == "dev" ]; then
+            echo "ROLE_ARN=${{ secrets.AWS_ROLE_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ inputs.environment }}" == "stage" ]; then
+            echo "ROLE_ARN=${{ secrets.AWS_ROLE_STAGE }}" >> $GITHUB_ENV
+          elif [ "${{ inputs.environment }}" == "prod" ]; then
+            echo "ROLE_ARN=${{ secrets.AWS_ROLE_PROD }}" >> $GITHUB_ENV
+          else
+            echo "Unknown environment"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::471112800881:role/GitHubActionsRole
+          role-to-assume: ${{ env.ROLE_ARN }}
           aws-region: ${{ inputs.aws_region }}
+
       - name: Configure Private Modules Credentials
         id: private-modules
         uses: philips-labs/terraform-private-modules-action@v1
         with:
           org: ${{ github.repository_owner }}
           token: ${{ secrets.TF_MODULES_REPO_TOKEN }}
+
       - name: Terraform Init
         id: init
         run: |
@@ -79,9 +93,11 @@ jobs:
           fi
         env:
           AWS_REGION: ${{ inputs.aws_region }}
+
       - name: Download Plan from S3
         if: steps.init.outputs.status != 'skipped'
         run: aws s3 cp ${{ env.TFPLAN_S3_PATH }} ${{ env.TF_PLAN_PATH }}
+
       - name: Terraform Apply
         if: steps.init.outputs.status != 'skipped'
         id: apply
