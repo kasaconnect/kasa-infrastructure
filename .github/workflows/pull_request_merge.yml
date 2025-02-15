@@ -28,7 +28,7 @@ jobs:
       contents: read
       pull-requests: read
     with:
-      detect_changes: ${{needs.detect-changes.outputs.folders}}
+      detect_changes: ${{ needs.detect-changes.outputs.folders }}
 
   apply:
     needs: [list-stages]
@@ -36,18 +36,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stage: ${{fromJson(needs.list-stages.outputs.stages)}}
+        stage: ${{ fromJson(needs.list-stages.outputs.stages) }}
     uses: ./.github/workflows/terraform_apply.yml
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
     with:
       tf_version: ${{ vars.TF_VERSION }}
       aws_region: ${{ vars.AWS_REGION }}
       working_directory: ${{ matrix.stage.folder }}
       event_name: pull_request
-      role_to_assume: ${{ vars.AWS_ASSUME_ROLE }}
       tfplan_s3_bucket: ${{ vars.TFPLAN_S3_BUCKET }}
       environment: ${{ matrix.stage.environment }}
     secrets: inherit
-    permissions:
-      id-token: write
-      contents: read
-      pull-requests: write

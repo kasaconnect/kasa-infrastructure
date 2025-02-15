@@ -22,6 +22,10 @@ on:
       event_name:
         description: 'The name of the event that called the workflow.'
         type: string
+      role_to_assume:
+        description: ARN of the role that has to be assumed by the steps that configure AWS credentials
+        required: true
+        type: string
 
 jobs:
   tflint:
@@ -85,24 +89,10 @@ jobs:
           terraform_version: ${{ inputs.tf_version }}
           terraform_wrapper: false
 
-      - name: Set AWS Role ARN
-        id: set-role
-        run: |
-          if [ "${{ inputs.environment }}" == "dev" ]; then
-            echo "ROLE_ARN=${{ secrets.AWS_ROLE_DEV }}" >> $GITHUB_ENV
-          elif [ "${{ inputs.environment }}" == "stage" ]; then
-            echo "ROLE_ARN=${{ secrets.AWS_ROLE_STAGE }}" >> $GITHUB_ENV
-          elif [ "${{ inputs.environment }}" == "prod" ]; then
-            echo "ROLE_ARN=${{ secrets.AWS_ROLE_PROD }}" >> $GITHUB_ENV
-          else
-            echo "Unknown environment"
-            exit 1
-          fi
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.ROLE_ARN }}
+          role-to-assume: ${{ inputs.role_to_assume }}
           aws-region: ${{ inputs.aws_region }}
 
       - name: Configure Private Modules Credentials

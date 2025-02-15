@@ -6,4 +6,5 @@ module "ec2_instance" {
   ami           = var.ami
   instance_type = var.instance_type
 }
+
 #add modules of resources as per requirement
