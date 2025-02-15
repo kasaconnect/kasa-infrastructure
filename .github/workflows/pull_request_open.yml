@@ -68,4 +68,5 @@ jobs:
       event_name: pull_request
       tfplan_s3_bucket: ${{ vars.TFPLAN_S3_BUCKET }}
       environment: ${{ matrix.stage.environment }}
+      role_to_assume: ${{ vars.AWS_ASSUME_ROLE }}
     secrets: inherit
