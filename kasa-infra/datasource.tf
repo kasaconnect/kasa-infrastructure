@@ -16,4 +16,4 @@ data "aws_ssm_parameter" "main" {
 # data "aws_region" "current" {}
 
 # # Retrieve the Availability Zones for the current region - Use if neeeded
-# data "aws_availability_zones" "available" {}
+data "aws_availability_zones" "available" {}
