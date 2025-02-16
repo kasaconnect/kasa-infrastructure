@@ -99,7 +99,7 @@ jobs:
         id: fmt
         run: |
           pwd
-          terraform fmt -recursive -check
+          terraform fmt -check
       - name: Terraform Validate
         id: validate
         run: |
