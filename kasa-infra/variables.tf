@@ -17,3 +17,11 @@ variable "account_id" {
   description = "The account ID where we deploy our resources"
   type        = string
 }
+# ---------------------------------------------------------------------------------------------
+# SSM Parameters
+# ---------------------------------------------------------------------------------------------
+
+variable "ssm" {
+  description = "SSM Parameters"
+  type        = any
+}
