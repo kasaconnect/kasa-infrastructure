@@ -10,10 +10,10 @@ data "aws_ssm_parameter" "main" {
 }
 
 # Retrieve the current AWS account ID - Use if neeeded
-data "aws_caller_identity" "current" {}
+# data "aws_caller_identity" "current" {}
 
-# Retrieve the current AWS region - Use if neeeded
-data "aws_region" "current" {}
+# # Retrieve the current AWS region - Use if neeeded
+# data "aws_region" "current" {}
 
-# Retrieve the Availability Zones for the current region - Use if neeeded
-data "aws_availability_zones" "available" {}
+# # Retrieve the Availability Zones for the current region - Use if neeeded
+# data "aws_availability_zones" "available" {}
