@@ -6,7 +6,7 @@
 data "aws_ssm_parameter" "main" {
   for_each = toset(["account_alias", "company_name", "company_domain"])
 
-  name = "/aft/account-request/custom-fields/${each.key}"
+  name = "/app-runner/kasa/${each.key}"
 }
 
 # Retrieve the current AWS account ID - Use if neeeded
