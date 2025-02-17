@@ -13,12 +13,12 @@ instance_type = "t2.micro"
 # ---------------------------------------------------------------------------------------------
 
 ssm = {
-  SWAGGER_USER                          = "development"
-  ACCESSTOKEN                           = "{PLACEHOLDER}"
-  API_KEYS_RETURNS                      = "{PLACEHOLDER}"
-  API_SUPER_ADMIN_KEY                   = "{PLACEHOLDER}"
-  AUTH_HASH_SECRET_RETURNS              = "{PLACEHOLDER}"
-  AUTH_TOKEN_EXPIRATION_TIME            = "240"
-  CORS_ENABLE                           = "false"
-  CORS_KEY                              = "{PLACEHOLDER}"
+#   SWAGGER_USER                          = "development"
+#   ACCESSTOKEN                           = "{PLACEHOLDER}"
+#   API_KEYS_RETURNS                      = "{PLACEHOLDER}"
+#   API_SUPER_ADMIN_KEY                   = "{PLACEHOLDER}"
+#   AUTH_HASH_SECRET_RETURNS              = "{PLACEHOLDER}"
+#   AUTH_TOKEN_EXPIRATION_TIME            = "240"
+#   CORS_ENABLE                           = "false"
+#   CORS_KEY                              = "{PLACEHOLDER}"
 }
