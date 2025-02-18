@@ -22,3 +22,12 @@ ssm = {
 #   CORS_ENABLE                           = "false"
 #   CORS_KEY                              = "{PLACEHOLDER}"
 }
+
+vpc = {
+  vpc_cidr = "10.1.0.0/16"
+  # Subnets
+  public_subnets      = ["10.1.0.0/20", "10.1.16.0/20"]
+  private_subnets     = ["10.1.128.0/20", "10.1.144.0/20"]
+  database_subnets    = ["10.10.21.0/24", "10.10.22.0/24"]
+  elasticache_subnets = ["10.10.31.0/24", "10.10.32.0/24"]
+}
